@@ -1,12 +1,11 @@
 import asyncio
 import os
 import time
-from pprint import pprint
 
 from dotenv import load_dotenv
 from mysql.connector import Error
 import mysql.connector
-from etc.database import fuzzy_search, delete_rows, match_products, copy_to_matches
+from etc.database import delete_rows, match_products, copy_to_matches
 from etc.util import seconds_to_time
 from prisma import prisma_task
 from selver import selver_task

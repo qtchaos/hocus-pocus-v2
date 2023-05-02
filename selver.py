@@ -5,7 +5,7 @@ import aiohttp
 import mysql
 
 from etc.category import category_parser
-from etc.database import insert_item, item_exists, commit_transactions
+from etc.database import insert_item, item_exists, commit_transactions, update_item
 from etc.util import request_page, seconds_to_time
 
 
@@ -37,9 +37,13 @@ async def selver_task(db_cursor: mysql.connector.connection.MySQLCursor, file_na
         for product in gathered_products:
             try:
                 item = item_parser(product["hits"]["hits"][0]["_source"])
-                if not item_exists(item, db_cursor):
+                if item_exists(item, db_cursor):
+                    update_item(item, db_cursor)
+                    i += 1
+                else:
                     insert_item(item, db_cursor)
                     i += 1
+                    
             except IndexError:
                 continue
 

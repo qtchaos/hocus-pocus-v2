@@ -3,6 +3,7 @@ import asyncio
 import aiofiles
 import aiohttp
 import mysql
+import typing
 from aiohttp import ClientSession
 
 
@@ -29,7 +30,7 @@ def seconds_to_time(seconds: float) -> str:
     return "%d:%02d:%02d" % (h, m, s)
 
 
-def swap(a, b, index) -> (tuple, tuple):
+def swap(a, b, index) -> (typing.Tuple[int, int]):
     if a[index] > b[index]:
         return a, b
     else:
@@ -40,8 +41,10 @@ def diff(a, b) -> float:
     return round(((abs(a - b)) / ((a + b) / 2)) * 100, 1)
 
 
-async def request_page(session: ClientSession, url: str, page_id: str = None):
+async def request_page(session: ClientSession, url: str, page_id: str = None, not_json = False):
     if page_id is not None:
         url = url.replace('%REPLACE', page_id)
     async with session.get(url) as response:
+        if not_json:
+            return await response.text()
         return await response.json()

@@ -33,6 +33,28 @@ def insert_item(product, db_cursor: mysql.connector.connection.MySQLCursor):
     )
 
 
+def update_item(product, db_cursor: mysql.connector.connection.MySQLCursor):
+    db_cursor.execute(
+        f"""
+        UPDATE Products
+        SET ean = {product["ean"]},
+        other_ean = {(product["other_ean"][0] if len(product["other_ean"]) > 0 else 0)},
+        name = '{product["name"].replace("'", '"')}',
+        brand = '{product["brand"].replace("'", '"')}',
+        category = '{product["category"]}',
+        image_url = '{product["image_url"]}',
+        is_age_restricted = {product["is_age_restricted"]},
+        is_discount = {product["is_discount"]},
+        price = {product["price"]},
+        store = '{product["store"]}',
+        unit_price = {product["unit_price"]},
+        url = '{product["url"]}',
+        weight = '{product["weight"].replace("'", '"')}',
+        disregard = 0
+        WHERE ean = {product["ean"]} AND store = '{product["store"]}';
+        """
+    )
+
 def match_products(db_cursor: mysql.connector.connection.MySQLCursor):
     db_cursor.execute(
         """
@@ -83,6 +105,7 @@ def match_products(db_cursor: mysql.connector.connection.MySQLCursor):
 
 
 def copy_to_matches(db_cursor: mysql.connector.connection.MySQLCursor):
+    delete_rows(db_cursor, "Matches")
     db_cursor.execute("""
     INSERT INTO Matches
     SELECT ID, EAN, name, brand, category, image_url, is_age_restricted, is_discount, 
@@ -122,8 +145,13 @@ def item_exists(product, db_cursor: mysql.connector.connection.MySQLCursor):
     return db_cursor.fetchone() is not None
 
 
-def delete_rows(db_cursor: mysql.connector.connection.MySQLCursor, table_name: str):
+def delete_rows(db_cursor: mysql.connector.connection.MySQLCursor, table_name: str, ean: int = None):
     """WARNING - Deletes all rows from the Products table"""
+    if ean is not None:
+        db_cursor.execute(f"DELETE FROM {table_name} WHERE ean = {ean};")
+        db_cursor.execute("COMMIT;")
+        return
+
     print(f"Deleting all rows from the {table_name} table...")
     db_cursor.execute(f"TRUNCATE {table_name};")
     db_cursor.execute("COMMIT;")
