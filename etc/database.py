@@ -1,59 +1,30 @@
+import random
 import time
 
 import mysql
+from xata import XataClient
 
 from etc.util import swap, diff
 
 
 # Blocking code
-def insert_item(product, db_cursor: mysql.connector.connection.MySQLCursor):
-    db_cursor.execute(
-        f"""
-        INSERT INTO Products (
-         ean, other_ean, name, brand, category, image_url, is_age_restricted,
-         is_discount, price, store, unit_price, url, weight
-        )
+def insert_item(product, db_client: XataClient):
+    db_client.create_or_update("Products", f"rec_{round(random.random() * 14827845)}_{product['store'].lower()}", {
+        "ean": product["ean"],
+        "other_ean": int(product["other_ean"][0] if len(product["other_ean"]) > 0 else 0),
+        "name": product["name"].replace("'", '"'),
+        "brand": product["brand"].replace("'", '"'),
+        "category": product["category"],
+        "image_url": product["image_url"],
+        "is_age_restricted": product["is_age_restricted"],
+        "is_discount": product["is_discount"],
+        "price": product["price"],
+        "store": product["store"],
+        "unit_price": product["unit_price"],
+        "url": product["url"],
+        "weight": product["weight"].replace("'", '"')
+    })
 
-        VALUES (
-         {product["ean"]},
-         {(product["other_ean"][0] if len(product["other_ean"]) > 0 else 0)},
-         '{product["name"].replace("'", '"')}',
-         '{product["brand"].replace("'", '"')}',
-         '{product["category"]}',
-         '{product["image_url"]}',
-         {product["is_age_restricted"]},
-         {product["is_discount"]},
-         {product["price"]},
-         '{product["store"]}',
-         {product["unit_price"]},
-         '{product["url"]}',
-         '{product["weight"].replace("'", '"')}'
-        );
-        """
-    )
-
-
-def update_item(product, db_cursor: mysql.connector.connection.MySQLCursor):
-    db_cursor.execute(
-        f"""
-        UPDATE Products
-        SET ean = {product["ean"]},
-        other_ean = {(product["other_ean"][0] if len(product["other_ean"]) > 0 else 0)},
-        name = '{product["name"].replace("'", '"')}',
-        brand = '{product["brand"].replace("'", '"')}',
-        category = '{product["category"]}',
-        image_url = '{product["image_url"]}',
-        is_age_restricted = {product["is_age_restricted"]},
-        is_discount = {product["is_discount"]},
-        price = {product["price"]},
-        store = '{product["store"]}',
-        unit_price = {product["unit_price"]},
-        url = '{product["url"]}',
-        weight = '{product["weight"].replace("'", '"')}',
-        disregard = 0
-        WHERE ean = {product["ean"]} AND store = '{product["store"]}';
-        """
-    )
 
 def match_products(db_cursor: mysql.connector.connection.MySQLCursor):
     db_cursor.execute(
@@ -75,7 +46,6 @@ def match_products(db_cursor: mysql.connector.connection.MySQLCursor):
     matched_eans = [ean[0] for ean in db_cursor.fetchall()]
     commit_transactions(db_cursor)
 
-    i = 0
     for ean in matched_eans:
         db_cursor.execute(f"SELECT * FROM Products WHERE ean = {ean} OR other_ean = {ean};")
         products = db_cursor.fetchall()
@@ -97,23 +67,17 @@ def match_products(db_cursor: mysql.connector.connection.MySQLCursor):
             """)
 
             print(f"Updated {ean} with {float_diff} and {percent_diff}% of difference.")
-            commit_transactions(db_cursor, i, i_threshold=25)
-
-        i += 1
-
-    commit_transactions(db_cursor)
 
 
-def copy_to_matches(db_cursor: mysql.connector.connection.MySQLCursor):
-    delete_rows(db_cursor, "Matches")
-    db_cursor.execute("""
-    INSERT INTO Matches
-    SELECT ID, EAN, name, brand, category, image_url, is_age_restricted, is_discount, 
-    price, store, unit_price, url, weight, other_ean, price_difference_float, price_difference_percentage
-    FROM Products
-    WHERE disregard = 0;
-    """)
-    commit_transactions(db_cursor)
+def copy_to_matches(db_client: XataClient):
+    data = db_client.search_and_filter().queryTable("Products", {
+        "columns": [],
+        "filter": {
+            "disregard": 0
+        }
+    })['records']
+    del data[0]['xata']
+    db_client.records().bulkInsertTableRecords("Matches", data)
 
 
 def commit_transactions(db_cursor: mysql.connector.connection.MySQLCursor, t1: float = None, i: int = None,
@@ -135,14 +99,23 @@ def commit_transactions(db_cursor: mysql.connector.connection.MySQLCursor, t1: f
         print(f"Inserted {i} products into database.")
 
 
-def fuzzy_search(query: str, db_cursor: mysql.connector.connection.MySQLCursor, count: int = 10):
-    db_cursor.execute("SELECT * FROM Products WHERE MATCH(name, brand) AGAINST(%s) LIMIT %s", (query, count,))
-    return db_cursor.fetchall()
+def fuzzy_search(query: str, db_client: XataClient, count: int = 10):
+    data = db_client.search_and_filter().searchTable("Products", {
+        "query": query,
+        "fuzziness": 1
+    }).json()['records']
+    del data[0]['xata']
+    return data
 
 
-def item_exists(product, db_cursor: mysql.connector.connection.MySQLCursor):
-    db_cursor.execute(f"SELECT * FROM Products WHERE ean = {product['ean']} AND store = '{product['store']}';")
-    return db_cursor.fetchone() is not None
+def item_exists(product, db_client: XataClient):
+    return len(db_client.search_and_filter().queryTable("Products", {
+        "columns": [],
+        "filter": {
+            "ean": product["ean"],
+            "store": product["store"]
+        }
+    }).json()['records']) > 0
 
 
 def delete_rows(db_cursor: mysql.connector.connection.MySQLCursor, table_name: str, ean: int = None):

@@ -3,7 +3,7 @@ categories = [
         'category': 'Mahlad ja joogid',
         'sub-categories': ['Mahlad ja -kontsentraadid, siirupid', 'Muud joogid', 'Alkoholivabad joogid',
                            'Energiajoogid', 'Kakaod, kakaojoogid', 'Karastusjoogid, toonikud', 'Kohvid',
-                           'Smuutid, värsked mahlad', 'Spordijoogid']},
+                           'Smuutid, värsked mahlad', 'Spordijoogid', 'Muud veinid ja veinijoogid']},
     {
         'category': 'Alkohoolsed joogid',
         'sub-categories': ['Long Drink', 'Siider', 'Ölled', 'Kange Alkohol', 'Džinnid', 'Konjakid, brändid', 'Liköörid',

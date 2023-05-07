@@ -3,13 +3,14 @@ import time
 
 import aiohttp
 import mysql
+from xata import XataClient
 
 from etc.category import category_parser
 from etc.database import insert_item, item_exists, commit_transactions, update_item
 from etc.util import request_page, seconds_to_time
 
 
-async def selver_task(db_cursor: mysql.connector.connection.MySQLCursor, file_name: str):
+async def selver_task(db_client: XataClient, file_name: str):
     print("Starting Selver task...")
     my_conn = aiohttp.TCPConnector(limit=20)
     with open(file_name, encoding="utf-8") as f:
@@ -37,21 +38,21 @@ async def selver_task(db_cursor: mysql.connector.connection.MySQLCursor, file_na
         for product in gathered_products:
             try:
                 item = item_parser(product["hits"]["hits"][0]["_source"])
-                if item_exists(item, db_cursor):
-                    update_item(item, db_cursor)
-                    i += 1
-                else:
-                    insert_item(item, db_cursor)
-                    i += 1
+                # if item_exists(item, db_client):
+                #     update_item(item, db_client)
+                #     i += 1
+                # else:
+                insert_item(item, db_client)
+                i += 1
                     
             except IndexError:
                 continue
 
-            if commit_transactions(db_cursor, t1, i):
-                t1 = time.perf_counter()
+            # if commit_transactions(db_client, t1, i):
+            #     t1 = time.perf_counter()
 
         # Commit the last transactions
-        commit_transactions(db_cursor)
+        # commit_transactions(db_client)
         t2 = time.perf_counter()
         print(f"Done inserting {i} items in {seconds_to_time(t2 - t1)}. {(t2 - starting_time) / i:.4f} seconds per item")
 
