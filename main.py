@@ -1,51 +1,43 @@
-import asyncio
-import os
+"""
+This module contains the main entry point for the program.
+"""
+
+import logging
 import time
 
-from dotenv import load_dotenv
-from mysql.connector import Error
-import mysql.connector
-from etc.database import delete_rows, match_products, copy_to_matches
 from etc.util import seconds_to_time
-from prisma import prisma_task
-from selver import selver_task
+from prisma import Prisma
+from selver import Selver
 
-load_dotenv()
+from etc.data import DB_CONNECTOR
 
-
-def connect_db() -> mysql.connector.pooling.MySQLConnection:
-    return mysql.connector.connect(
-        host=os.getenv("HOST"),
-        database=os.getenv("DATABASE"),
-        user=os.getenv("USER"),
-        password=os.getenv("PASSWORD"),
-        ssl_ca=os.getenv("SSL_CA")
-    )
+logging.basicConfig(
+    format="[%(asctime)s] [%(name)s/%(levelname)s]: %(message)s",
+    datefmt="%d-%b-%y %H:%M:%S",
+    level=logging.INFO,
+)
+logger = logging.getLogger("main")
 
 
-def main(db: mysql.connector.pooling.MySQLConnection):
-    if db.is_connected():
-        # asyncio.run(download_images(db.cursor()))
+def main():
+    """Main entry point for the program."""
+
+    if DB_CONNECTOR.is_connected():
         t1 = time.perf_counter()
 
-        delete_rows(db.cursor(), "Products")
-        asyncio.run(selver_task(db.cursor(), "data/selver/skus.txt"))
-        asyncio.run(prisma_task(db.cursor(), "data/prisma/eans.txt"))
-        match_products(db.cursor())
-        copy_to_matches(db.cursor())
+        # Delete all rows from the Products table before adding new ones.
+        DB_CONNECTOR.delete_rows("Products")
 
-        # pprint(fuzzy_search("coca cola", db.cursor()))
+        # Start the tasks.
+        Prisma(file_name="data/prisma/eans.txt").start()
+        Selver(file_name="data/selver/skus.txt").start()
+
+        # Match the products.
+        DB_CONNECTOR.match_products()
+
         t2 = time.perf_counter()
-        print(f"Done in {seconds_to_time(t2 - t1)}.")
+        logger.info(f"Done in %s.", seconds_to_time(t2 - t1))
 
 
 if __name__ == "__main__":
-    try:
-        connection = connect_db()
-        main(connection)
-    except Error as e:
-        print("Error while connecting to MySQL", e)
-    finally:
-        if connection.is_connected():
-            connection.close()
-            print("MySQL connection is closed")
+    main()
