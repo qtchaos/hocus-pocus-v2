@@ -13,8 +13,8 @@ import time
 import aiohttp
 
 from etc.category import category_parser
-from etc.util import request_page, seconds_to_time
 from etc.data import DB_CONNECTOR
+from etc.util import request_page, stot
 
 
 class Prisma:
@@ -23,11 +23,12 @@ class Prisma:
 
     :param file_name: The name of the file containing product ids.\n
     :param ids: The list of product ids.
+    :param debug: Whether to set the logging to debug or not.
 
     :returns: None
     """
 
-    def __init__(self, file_name: str = None, ids: list = None):
+    def __init__(self, file_name: str = None, ids: list = None, debug = False):
         """
         Initializes the Prisma class.
 
@@ -39,6 +40,8 @@ class Prisma:
         self.file_name: str = file_name
         self.ids: list = ids
         self.logger = logging.getLogger("prisma")
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
 
     def start(self) -> None:
         """
@@ -104,9 +107,9 @@ class Prisma:
             DB_CONNECTOR.commit_transactions()
             t2 = time.perf_counter()
             self.logger.info(
-                f"Done inserting %s items in %s. %s seconds per item",
+                "Done inserting %s items in %s. %s seconds per item",
                 i,
-                seconds_to_time(t2 - t1),
+                stot(t2 - t1),
                 round((t2 - starting_time) / i, 4),
             )
 
@@ -135,17 +138,17 @@ class Prisma:
     def __name_parser(self, product_name):
         regex = ",? \d{1,4}?\d? ?(g|kg|ml|l|/|tk|€|x|×|,)"
         invalid_chars = {"´": "'", "`": "'", "  ": " ", "amp;": ""}
-        for char in invalid_chars:
-            product_name = product_name.replace(char, invalid_chars[char])
+        
+        for char, replacement in invalid_chars.items():
+            product_name = product_name.replace(char, replacement)
+
         if re.search(regex, product_name, flags=re.IGNORECASE):
             product_name = re.split(regex, product_name, flags=re.IGNORECASE)[0]
 
         return product_name.title()
 
     def __brand_parser(self, product_brand):
-        if product_brand == "":
-            return "N/A"
-        return product_brand
+        return "N/A" if product_brand == "" else product_brand
 
     def __image_parser(self, product):
         try:

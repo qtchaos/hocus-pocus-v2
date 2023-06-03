@@ -35,22 +35,31 @@ class DatabaseConnection:
         )
 
         self.cursor: mysql.connector.connection.MySQLCursor = self.connection.cursor()
-        self.logger = logging.getLogger("database")
+        self.logger: logging.Logger = logging.getLogger("database")
+        self.debug: bool = False
+        self.dummy: bool = False
+
+        if self.debug:
+            self.logger.setLevel(logging.DEBUG)
 
     def commit_transactions(
-        self, t1: float = None, i: int = None, i_threshold: int = None
+        self, t1: float = None, i: int = None, threshold: int = None
     ) -> bool:
         """
-        Commit transactions every 15 seconds or when i >= i_threshold.
+        Commit transactions every 15 seconds or when i >= threshold.
 
         :param t1: Time when the transaction started.
         :param i: Number of products inserted.
-        :param i_threshold: Threshold for i. If i >= i_threshold, commit.
+        :param threshold: Threshold for i. If i >= threshold, commit.
 
         :returns: True if transaction was committed, False otherwise.
         """
+        
+        if self.dummy:
+            self.logger.debug("Dummy database does not commit transactions.")
+            return False
 
-        if t1 is None and (i is None or i >= i_threshold):
+        if t1 is None and (i is None or i >= threshold):
             self.cursor.execute("COMMIT;")
             return True
 
@@ -71,6 +80,11 @@ class DatabaseConnection:
 
         :return: None
         """
+
+        if self.dummy:
+            return
+
+        self.logger.debug(f"Inserting {product['name']} into database.")
 
         self.cursor.execute(
             f"""
@@ -106,7 +120,12 @@ class DatabaseConnection:
 
         :returns: None
         """
-
+        
+        if self.dummy:
+            return
+        
+        self.logger.debug(f"Updating {product['name']} in database.")
+        
         self.cursor.execute(
             f"""
             UPDATE Products
@@ -134,7 +153,12 @@ class DatabaseConnection:
 
         :returns: True if connected, False otherwise.
         """
+        
+        if self.dummy:
+            self.logger.debug("Dummy database is always connected.")
+            return True
 
+        self.logger.debug("Checking if database is connected.")
         return self.connection.is_connected()
 
     def match_products(self) -> None:
@@ -143,6 +167,10 @@ class DatabaseConnection:
 
         :returns: None
         """
+        
+        if self.dummy:
+            self.logger.debug("Dummy database does not match products.")
+            return
 
         self.cursor.execute(
             """
@@ -163,8 +191,8 @@ class DatabaseConnection:
         matched_eans = [ean[0] for ean in self.cursor.fetchall()]
         self.commit_transactions()
 
-        i = 0
-        for ean in matched_eans:
+        self.logger.info("Starting enumeration of matched EANs.")
+        for i, ean in enumerate(matched_eans):
             self.cursor.execute(
                 f"SELECT * FROM Products WHERE ean = {ean} OR other_ean = {ean};"
             )
@@ -190,12 +218,10 @@ class DatabaseConnection:
                 """
                 )
 
-                self.logger.info(
+                self.logger.debug(
                     f"Updated {ean} with {float_diff} and {percent_diff}% of difference."
                 )
-                self.commit_transactions(i, i_threshold=25)
-
-            i += 1
+                self.commit_transactions(i, threshold=25)
 
         self.commit_transactions()
 
@@ -222,6 +248,10 @@ class DatabaseConnection:
         :returns: A list of products that match the search query.
         """
 
+        if self.dummy:
+            self.logger.debug("Dummy database does not search.")
+            return []
+        
         self.cursor.execute(
             "SELECT * FROM Products WHERE MATCH(name, brand) AGAINST(%s) LIMIT %s",
             (
@@ -240,8 +270,11 @@ class DatabaseConnection:
         :returns: True if the product exists in the database, False otherwise.
         """
 
+        if self.dummy:
+            return False
+
         self.cursor.execute(
-            f"SELECT * FROM Products WHERE ean = {product_ean} AND store = '{product_store}';"
+            f"SELECT null FROM Products WHERE ean = {product_ean} AND store = '{product_store}';"
         )
         return self.cursor.fetchone() is not None
 
@@ -254,6 +287,10 @@ class DatabaseConnection:
 
         :returns: None
         """
+
+        if self.dummy:
+            self.logger.debug("Dummy database does not delete rows.")
+            return
 
         if product_ean is not None:
             self.cursor.execute(f"DELETE FROM {table_name} WHERE ean = {product_ean};")
@@ -288,6 +325,10 @@ class DatabaseConnection:
 
         :returns: None
         """
+
+        if self.dummy:
+            self.logger.debug("Dummy database does not download images.")
+            return
 
         self.cursor.execute("SELECT image_url, ID FROM Products")
         rows = self.cursor.fetchall()

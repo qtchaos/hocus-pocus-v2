@@ -4,7 +4,7 @@ This file contains utility functions.
 Functions:
     download_img: Downloads an image from a url.
     download_images: Downloads all images from the database.
-    seconds_to_time: Converts seconds to a time format.
+    stot: Converts seconds to a time format.
     swap: Swaps two values in a list.
     diff: Returns the percentage difference between two numbers.
     request_page: Requests a page from a url.
@@ -15,9 +15,11 @@ import typing
 from aiohttp import ClientSession
 
 
-def seconds_to_time(seconds: float) -> str:
+def stot(seconds: float) -> str:
     """
     Converts seconds to a time format.
+
+    stot -> Seconds TO Time
 
     :param seconds: The seconds to convert.
 
@@ -26,7 +28,7 @@ def seconds_to_time(seconds: float) -> str:
 
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
-    return f"%d:%02d:%02d" % (h, m, s)
+    return "%d:%02d:%02d" % (h, m, s)
 
 
 def swap(list_a: list, list_b: list, index: int) -> typing.Tuple[int, int]:
@@ -40,12 +42,10 @@ def swap(list_a: list, list_b: list, index: int) -> typing.Tuple[int, int]:
     :returns: The swapped tuples.
     """
 
-    if list_a[index] > list_b[index]:
-        return list_a, list_b
-    return list_b, list_b
+    return (list_a, list_b) if list_a[index] > list_b[index] else (list_b, list_b)
 
 
-def diff(first_number, second_number) -> float:
+def diff(first_number: float, second_number: float) -> float:
     """
     Calculates the percentage difference between two values.
 
@@ -79,6 +79,4 @@ async def request_page(
     if page_id is not None:
         url = url.replace("%REPLACE", page_id)
     async with session.get(url) as response:
-        if not_json:
-            return await response.text()
-        return await response.json()
+        return await response.text() if not_json else await response.json()

@@ -4,13 +4,16 @@ This module contains the Selver scraping task.
 Classes:
     Selver: The class for the Selver scraping task and other utilities it may need.
 """
+
 import asyncio
+import contextlib
+import logging
 import time
 
 import aiohttp
 
 from etc.category import category_parser
-from etc.util import request_page, seconds_to_time
+from etc.util import request_page, stot
 from etc.data import DB_CONNECTOR
 
 
@@ -21,9 +24,12 @@ class Selver:
 
     :param file_name: The name of the file containing product eans.\n
     :param eans: The list of product eans.
+    :param debug: Whether to set the logging to debug or not.
+
+    :returns: None
     """
 
-    def __init__(self, file_name: str = None, eans: list = None):
+    def __init__(self, file_name: str = None, eans: list = None, debug: bool = False):
         """
         Initializes the Selver class.
 
@@ -34,6 +40,9 @@ class Selver:
 
         self.file_name: str = file_name
         self.eans: list = eans
+        self.logger = logging.getLogger("selver")
+        if debug:
+            self.logger.setLevel(logging.DEBUG)
 
     def start(self) -> None:
         """
@@ -56,7 +65,7 @@ class Selver:
         None
         """
 
-        print("Starting Selver task...")
+        self.logger.info("Starting Selver task...")
         my_conn = aiohttp.TCPConnector(limit=20)
         if self.file_name is not None:
             with open(self.file_name, encoding="utf-8") as f:
@@ -78,23 +87,21 @@ class Selver:
                     asyncio.ensure_future(request_page(session=session, url=url))
                 )
 
-            print("Gathering products...")
+            self.logger.info("Gathering products...")
             gathered_products = await asyncio.gather(*tasks, return_exceptions=True)
 
             i = len(eans) > 0
             starting_time = time.perf_counter()
             t1 = starting_time + 1
-            print("Inserting products into database...")
+            self.logger.info("Inserting products into database...")
             for product in gathered_products:
                 try:
                     item = self.__item_parser(product["hits"]["hits"][0]["_source"])
                     if DB_CONNECTOR.exists(item["ean"], item["store"]):
                         DB_CONNECTOR.update(item)
-                        i += 1
                     else:
                         DB_CONNECTOR.insert(item)
-                        i += 1
-
+                    i += 1
                 except IndexError:
                     continue
 
@@ -107,11 +114,11 @@ class Selver:
             # Commit the last transactions
             DB_CONNECTOR.commit_transactions()
             t2 = time.perf_counter()
-            print(
-                f"Done inserting {i} items in {seconds_to_time(t2 - t1)}. {(t2 - starting_time) / i:.4f} seconds per item"
+            self.logger.info(
+                f"Done inserting % items in {stot(t2 - t1)}. {(t2 - starting_time) / i:.4f} seconds per item"
             )
 
-    def __item_parser(self, product):
+    def __item_parser(self, product: dict) -> dict:
         try:
             other_ean = product["product_other_ean"]
         except KeyError:
@@ -135,18 +142,16 @@ class Selver:
             "price_difference_percentage": 0,
         }
 
-    def __other_ean_parser(self, other_ean):
-        try:
+    def __other_ean_parser(self, other_ean: str) -> list:
+        with contextlib.suppress(KeyError):
             if other_ean is None:
                 return []
             elif "," in other_ean:
                 return other_ean.split(",")
             else:
                 return [int(other_ean)]
-        except KeyError:
-            pass
 
-    def __image_parser(self, product):
+    def __image_parser(self, product: dict) -> str:
         try:
             image = f'https://www.selver.ee/img/800/800/resize{product["media_gallery"][0]["image"]}'
         except KeyError:
