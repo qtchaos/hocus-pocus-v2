@@ -115,7 +115,10 @@ class Selver:
             DB_CONNECTOR.commit_transactions()
             t2 = time.perf_counter()
             self.logger.info(
-                f"Done inserting % items in {stot(t2 - t1)}. {(t2 - starting_time) / i:.4f} seconds per item"
+                "Done inserting %s items in %s. %s seconds per item",
+                i,
+                stot(t2 - t1),
+                round((t2 - starting_time) / i, 4),
             )
 
     def __item_parser(self, product: dict) -> dict:
