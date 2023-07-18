@@ -9,6 +9,7 @@ import asyncio
 import logging
 import re
 import time
+from typing import Dict
 
 import aiohttp
 
@@ -79,7 +80,7 @@ class Prisma:
                     asyncio.ensure_future(request_page(session=session, url=url))
                 )
 
-            self.logger.info("Gathering products...")
+            self.logger.info(f"Gathering {len(tasks)} products...")
             gathered_products = await asyncio.gather(*tasks, return_exceptions=True)
 
             starting_time = time.perf_counter()
@@ -135,29 +136,29 @@ class Prisma:
         except (KeyError, TypeError):
             return {}
 
-    def __name_parser(self, product_name):
-        regex = ",? \d{1,4}?\d? ?(g|kg|ml|l|/|tk|€|x|×|,)"
-        invalid_chars = {"´": "'", "`": "'", "  ": " ", "amp;": ""}
+    def __name_parser(self, product_name: str) -> str:
+        regex: str = ",? \d{1,4}?\d? ?(g|kg|ml|l|/|tk|€|x|×|,)"
+        invalid_chars: dict = {"´": "'", "`": "'", "  ": " ", "amp;": ""}
         
         for char, replacement in invalid_chars.items():
-            product_name = product_name.replace(char, replacement)
+            product_name: str = product_name.replace(char, replacement)
 
         if re.search(regex, product_name, flags=re.IGNORECASE):
-            product_name = re.split(regex, product_name, flags=re.IGNORECASE)[0]
+            product_name: str = re.split(regex, product_name, flags=re.IGNORECASE)[0]
 
         return product_name.title()
 
-    def __brand_parser(self, product_brand):
+    def __brand_parser(self, product_brand: str) -> str:
         return "N/A" if product_brand == "" else product_brand
 
-    def __image_parser(self, product):
+    def __image_parser(self, product: Dict[str, str]) -> str:
         try:
             image = f'https://s3-eu-west-1.amazonaws.com/balticsimages/images/320x480/{product["image_guid"]}.png'
         except KeyError:
             image = "https://www.prismamarket.ee/images/entry_no_image_170.png"
         return image
 
-    def __campaign_parser(self, product):
+    def __campaign_parser(self, product: dict) -> bool:
         try:
             if product["entry_ad"]:
                 return True

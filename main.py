@@ -3,6 +3,8 @@ This module contains the main entry point for the program.
 """
 
 import logging
+import os
+import sys
 import time
 from argparse import ArgumentParser
 
@@ -13,8 +15,8 @@ from selver import Selver
 
 
 argparser = ArgumentParser()
-argparser.add_argument("-d", "--debug", help="Set the logging to debug", action="store_true", required=False)
-argparser.add_argument("--dummy", help="Don't delete any data", action="store_true", required=False)
+argparser.add_argument("-d", "--debug", help="Set the logging to debug mode", action="store_true", required=False)
+argparser.add_argument("--dummy", help="Don't delete any data from the database", action="store_true", required=False)
 args = argparser.parse_args()
 
 logging.basicConfig(
@@ -27,11 +29,18 @@ logger = logging.getLogger("main")
 
 def main():
     """Main entry point for the program."""
-
+    if not os.path.exists(".env"):
+        logger.error("Missing '.env' file. Please copy '.env.template' into '.env' and add valid credentials.")
+        sys.exit(1)
+    
     if args.debug:
         logger.info("Setting logging to debug.")
         logging.getLogger().setLevel(logging.DEBUG)
         DB_CONNECTOR.debug = args.debug
+
+    if not os.path.exists("resources/cacert.pem"):
+        logger.debug("Downloading cacert.pem.")
+        os.system("curl -o resources/cacert.pem https://curl.haxx.se/ca/cacert.pem")
 
     if args.dummy:
         logger.info("Setting dummy mode.")
@@ -44,8 +53,8 @@ def main():
         DB_CONNECTOR.delete_rows("Products")
 
         # Start the tasks.
-        Prisma(file_name="data/prisma/eans.txt", debug=args.debug).start()
-        Selver(file_name="data/selver/skus.txt", debug=args.debug).start()
+        Prisma(file_name="resources/prisma/eans.txt", debug=args.debug).start()
+        Selver(file_name="resources/selver/skus.txt", debug=args.debug).start()
 
         # Match the products.
         DB_CONNECTOR.match_products()

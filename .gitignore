@@ -1,4 +1,4 @@
 .env
-data/cacert.pem
+resources/cacert.pem
 __pycache__
 .idea

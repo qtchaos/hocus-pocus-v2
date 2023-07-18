@@ -87,7 +87,7 @@ class Selver:
                     asyncio.ensure_future(request_page(session=session, url=url))
                 )
 
-            self.logger.info("Gathering products...")
+            self.logger.info(f"Gathering {len(tasks)} products...")
             gathered_products = await asyncio.gather(*tasks, return_exceptions=True)
 
             i = len(eans) > 0
@@ -145,7 +145,7 @@ class Selver:
             "price_difference_percentage": 0,
         }
 
-    def __other_ean_parser(self, other_ean: str) -> list:
+    def __other_ean_parser(self, other_ean: str) -> list[int]:
         with contextlib.suppress(KeyError):
             if other_ean is None:
                 return []
@@ -156,7 +156,7 @@ class Selver:
 
     def __image_parser(self, product: dict) -> str:
         try:
-            image = f'https://www.selver.ee/img/800/800/resize{product["media_gallery"][0]["image"]}'
+            image: str = f'https://www.selver.ee/img/800/800/resize{product["media_gallery"][0]["image"]}'
         except KeyError:
             image = "https://www.prismamarket.ee/images/entry_no_image_170.png"
         return image

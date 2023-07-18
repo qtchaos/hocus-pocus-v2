@@ -30,7 +30,7 @@ class DatabaseConnection:
                 database=os.getenv("DATABASE"),
                 user=os.getenv("USER"),
                 password=os.getenv("PASSWORD"),
-                ssl_ca=os.getenv("SSL_CA"),
+                ssl_ca="resources/cacert.pem",
             )
         )
 
@@ -298,7 +298,7 @@ class DatabaseConnection:
             return
 
         self.logger.info(f"Deleting all rows from the {table_name} table...")
-        self.cursor.execute(f"TRUNCATE {table_name};")
+        self.cursor.execute(f"DELETE FROM {table_name};")
         self.cursor.execute("COMMIT;")
 
     async def __download_img(self, url, item_id, session) -> None:
